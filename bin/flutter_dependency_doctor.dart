@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_dependency_doctor/analyzer/dependency_analyzer.dart';
@@ -11,10 +12,15 @@ Future<void> main(List<String> arguments) async {
   }
 
   final command = arguments.first.toLowerCase();
+  final options = arguments.skip(1).map((arg) => arg.toLowerCase()).toSet();
 
   switch (command) {
     case 'analyze':
-      await runAnalyze();
+      if (options.contains('--json')) {
+        await runAnalyzeJson();
+      } else {
+        await runAnalyze();
+      }
       break;
 
     case 'outdated':
@@ -53,17 +59,19 @@ Future<void> main(List<String> arguments) async {
 // ANALYZE PROJECT
 // ============================================================
 
-Future<DependencyAnalysisResult?> _analyzeProject() async {
+Future<DependencyAnalysisResult?> _analyzeProject({bool silent = false}) async {
   try {
     final analyzer = DependencyAnalyzer(projectPath: Directory.current.path);
 
     return await analyzer.analyze();
   } catch (e) {
-    print('');
-    print('❌ Analysis failed');
-    print('────────────────────────────────────');
-    print(e);
-    print('');
+    if (!silent) {
+      print('');
+      print('❌ Analysis failed');
+      print('────────────────────────────────────');
+      print(e);
+      print('');
+    }
 
     return null;
   }
@@ -97,6 +105,82 @@ Future<void> runAnalyze() async {
   _printPackageDetails(result.health);
 
   print('');
+}
+
+// ============================================================
+// JSON ANALYZE COMMAND
+// ============================================================
+
+Future<void> runAnalyzeJson() async {
+  final result = await _analyzeProject(silent: true);
+
+  if (result == null) {
+    exitCode = 1;
+
+    final error = {'success': false, 'error': 'Dependency analysis failed.'};
+
+    print(const JsonEncoder.withIndent('  ').convert(error));
+    return;
+  }
+
+  final jsonResult = _buildAnalysisJson(result);
+
+  const encoder = JsonEncoder.withIndent('  ');
+
+  print(encoder.convert(jsonResult));
+}
+
+// ============================================================
+// BUILD JSON RESULT
+// ============================================================
+
+Map<String, dynamic> _buildAnalysisJson(DependencyAnalysisResult result) {
+  final health = result.health;
+
+  final healthScore = health.isEmpty
+      ? 100
+      : health.map((package) => package.score).reduce((a, b) => a + b) ~/
+            health.length;
+
+  final healthy = health
+      .where((package) => package.status == HealthStatus.healthy)
+      .length;
+
+  final warnings = health
+      .where((package) => package.status == HealthStatus.warning)
+      .length;
+
+  final critical = health
+      .where((package) => package.status == HealthStatus.critical)
+      .length;
+
+  return {
+    'success': true,
+    'summary': {
+      'productionDependencies': result.productionDependencyCount,
+      'developmentDependencies': result.devDependencyCount,
+      'transitiveDependencies': result.transitiveDependencyCount,
+      'totalResolvedPackages': result.graph.packageCount,
+    },
+    'health': {
+      'score': healthScore,
+      'healthy': healthy,
+      'warnings': warnings,
+      'critical': critical,
+    },
+    'packages': health.map((package) {
+      return {
+        'name': package.packageName,
+        'currentVersion': package.currentVersion,
+        'latestVersion': package.latestVersion,
+        'status': package.status.name,
+        'score': package.score,
+        'outdated': package.isOutdated,
+        'issues': package.issues,
+        'recommendations': package.recommendations,
+      };
+    }).toList(),
+  };
 }
 
 // ============================================================
@@ -166,9 +250,7 @@ Future<void> runOutdated() async {
 
   for (final package in outdated) {
     print('⚠ ${package.packageName}');
-
     print('  Current: ${package.currentVersion}');
-
     print('  Latest:  ${package.latestVersion}');
 
     if (package.recommendations.isNotEmpty) {
@@ -286,7 +368,6 @@ void _printProductionDependencies(DependencyGraph graph) {
 
   for (final package in packages) {
     print('');
-
     print('📦 ${package.name} ${package.version}');
 
     if (package.dependencies.isEmpty) {
@@ -329,7 +410,6 @@ void _printDevelopmentDependencies(DependencyGraph graph) {
 
   for (final package in packages) {
     print('');
-
     print('🛠 ${package.name} ${package.version}');
 
     if (package.dependencies.isEmpty) {
@@ -388,11 +468,8 @@ void _printHealthSummary(List<PackageHealth> health) {
       .length;
 
   print('Health Score: $totalScore/100');
-
   print('Healthy:  $healthy');
-
   print('Warnings: $warnings');
-
   print('Critical: $critical');
 
   print('');
@@ -456,7 +533,7 @@ void _printHelp() {
   print('');
 
   print('Usage:');
-  print('  dart run flutter_dependency_doctor <command>');
+  print('  dart run flutter_dependency_doctor <command> [options]');
 
   print('');
 
@@ -471,6 +548,12 @@ void _printHelp() {
   print('  graph         Show dependency graph');
 
   print('  help          Show this help message');
+
+  print('');
+
+  print('Analyze Options:');
+
+  print('  --json        Output analysis as JSON');
 
   print('');
 
