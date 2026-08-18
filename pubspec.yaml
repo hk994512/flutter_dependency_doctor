@@ -2,7 +2,7 @@ name: flutter_dependency_doctor
 
 description: An intelligent dependency health and optimization tool for Dart and Flutter projects.
 
-version: 0.1.2
+version: 0.1.3
 
 repository: https://github.com/hk994512/flutter_dependency_doctor
 homepage: https://github.com/hk994512/flutter_dependency_doctor

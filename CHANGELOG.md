@@ -9,3 +9,7 @@
 ## 0.1.0
 
 - Initial release
+
+## 0.1.3
+
+- Improved example.dart with argument support and better error handling
