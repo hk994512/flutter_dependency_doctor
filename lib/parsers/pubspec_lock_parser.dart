@@ -13,66 +13,57 @@ class PubspecLockParser {
     final file = File('$projectPath/pubspec.lock');
 
     if (!file.existsSync()) {
-      throw Exception('pubspec.lock not found at: ${file.path}');
+      throw FileSystemException('pubspec.lock not found', file.path);
     }
 
     final content = file.readAsStringSync();
 
-    final yaml = loadYaml(content);
+    final dynamic yaml;
+
+    try {
+      yaml = loadYaml(content);
+    } on YamlException catch (e) {
+      throw FormatException('Invalid pubspec.lock: ${e.message}');
+    }
 
     if (yaml is! YamlMap) {
-      throw Exception('Invalid pubspec.lock format.');
+      throw const FormatException(
+        'Invalid pubspec.lock format. Expected a YAML map.',
+      );
     }
 
     final packages = yaml['packages'];
 
+    if (packages == null) {
+      return const [];
+    }
+
     if (packages is! YamlMap) {
-      throw Exception('No packages section found in pubspec.lock.');
+      throw const FormatException(
+        'Invalid pubspec.lock: packages must be a YAML map.',
+      );
     }
 
     final dependencies = <LockedDependency>[];
 
     for (final entry in packages.entries) {
       final name = entry.key.toString();
-
       final package = entry.value;
 
       if (package is! YamlMap) {
         continue;
       }
 
-      final version = package['version']?.toString() ?? 'unknown';
-
-      final source = package['source']?.toString() ?? 'unknown';
-
-      /*
-       * pubspec.lock does not give us the complete
-       * dependency classification that we need.
-       *
-       * Therefore, packages parsed directly from the
-       * lock file are initially treated as transitive.
-       *
-       * The PubDepsParser will later provide the correct
-       * kind: direct / dev / transitive.
-       */
-      const kind = 'transitive';
-
-      final packageDependencies = <String>[];
-
-      final dependencyList = package['dependencies'];
-
-      if (dependencyList is YamlList) {
-        for (final dependency in dependencyList) {
-          packageDependencies.add(dependency.toString());
-        }
-      }
+      final version = _parseVersion(package);
+      final source = _parseSource(package);
+      final packageDependencies = _parseDependencies(package['dependencies']);
 
       dependencies.add(
         LockedDependency(
           name: name,
           version: version,
           source: source,
-          kind: kind,
+          kind: 'transitive',
           dependencies: packageDependencies,
           directDependencies: const [],
           devDependencies: const [],
@@ -80,6 +71,22 @@ class PubspecLockParser {
       );
     }
 
-    return dependencies;
+    return List.unmodifiable(dependencies);
+  }
+
+  String _parseVersion(YamlMap package) {
+    return package['version']?.toString() ?? 'unknown';
+  }
+
+  String _parseSource(YamlMap package) {
+    return package['source']?.toString() ?? 'unknown';
+  }
+
+  List<String> _parseDependencies(dynamic value) {
+    if (value is! YamlList) {
+      return const [];
+    }
+
+    return List.unmodifiable(value.map((dependency) => dependency.toString()));
   }
 }
