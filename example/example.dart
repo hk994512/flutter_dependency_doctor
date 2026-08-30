@@ -1,40 +1,118 @@
 import 'dart:io';
 
-/// Example: Using Flutter Dependency Doctor programmatically.
+/// Programmatic example for Flutter Dependency Doctor.
 ///
-/// Flutter Dependency Doctor is primarily a command-line tool — it does not
-/// currently expose a public Dart library API. This example shows how to
-/// invoke the CLI from within a Dart script and handle its output/exit code,
-/// which is useful if you want to run it as part of a custom build script,
-/// CI pipeline, or automation tool.
+/// This example demonstrates how to invoke Flutter Dependency Doctor
+/// from another Dart script.
+///
+/// Usage:
+///
+///   dart run example/example.dart
+///   dart run example/example.dart /path/to/flutter/project
+///
+/// The project path defaults to the current working directory.
+///
+/// This is useful for:
+/// - CI/CD pipelines
+/// - custom build scripts
+/// - local automation
+/// - dependency checks before deployment
 Future<void> main(List<String> args) async {
-  final projectPath = args.isNotEmpty ? args[0] : Directory.current.path;
+  if (_showHelp(args)) {
+    _printUsage();
+    return;
+  }
 
-  print('🩺 Running Flutter Dependency Doctor on: $projectPath\n');
+  if (args.length > 1) {
+    stderr.writeln('Error: Too many arguments.\n');
+    _printUsage();
+    exitCode = 64;
+    return;
+  }
 
-  final result = await Process.run(
+  final projectPath = args.isEmpty ? Directory.current.path : args.first;
+
+  final projectDirectory = Directory(projectPath);
+
+  if (!projectDirectory.existsSync()) {
+    stderr.writeln('Error: Project directory does not exist:');
+    stderr.writeln('  $projectPath');
+    exitCode = 66;
+    return;
+  }
+
+  final pubspecFile = File(
+    '${projectDirectory.path}${Platform.pathSeparator}pubspec.yaml',
+  );
+
+  if (!pubspecFile.existsSync()) {
+    stderr.writeln('Error: No pubspec.yaml found in:');
+    stderr.writeln('  ${projectDirectory.path}');
+    stderr.writeln('Please provide the path to a Flutter/Dart project.');
+    exitCode = 66;
+    return;
+  }
+
+  stdout.writeln('🩺 Running Flutter Dependency Doctor...');
+  stdout.writeln('📁 Project: ${projectDirectory.path}\n');
+
+  final result = await _runDoctor(projectDirectory.path);
+
+  if (result.stdout.isNotEmpty) {
+    stdout.write(result.stdout);
+  }
+
+  if (result.stderr.isNotEmpty) {
+    stderr.write(result.stderr);
+  }
+
+  if (result.exitCode == 0) {
+    stdout.writeln('\n✅ Dependency check completed successfully.');
+    exitCode = 0;
+    return;
+  }
+
+  stderr.writeln(
+    '\n⚠️ Dependency Doctor exited with code '
+    '${result.exitCode}.',
+  );
+
+  stderr.writeln('Review the output above for dependency issues.');
+
+  exitCode = result.exitCode;
+}
+
+/// Runs Flutter Dependency Doctor in the target project.
+Future<ProcessResult> _runDoctor(String projectPath) async {
+  return Process.run(
     'dart',
     ['run', 'flutter_dependency_doctor'],
     workingDirectory: projectPath,
     runInShell: true,
   );
+}
 
-  if (result.stdout.toString().isNotEmpty) {
-    stdout.write(result.stdout);
-  }
+/// Checks whether the user requested help.
+bool _showHelp(List<String> args) {
+  return args.length == 1 && (args.first == '--help' || args.first == '-h');
+}
 
-  if (result.stderr.toString().isNotEmpty) {
-    stderr.write(result.stderr);
-  }
+/// Prints command usage information.
+void _printUsage() {
+  stdout.writeln('''
+Flutter Dependency Doctor - Dart Example
 
-  switch (result.exitCode) {
-    case 0:
-      print('\n✅ Dependency check complete — no critical issues found.');
-      break;
-    default:
-      print('\n⚠️ Dependency Doctor exited with code ${result.exitCode}.');
-      print('Review the output above for details.');
-  }
+Usage:
+  dart run example/example.dart
+  dart run example/example.dart <project-path>
 
-  exit(result.exitCode);
+Options:
+  -h, --help    Show this help message
+
+Examples:
+  dart run example/example.dart
+  dart run example/example.dart ../my_flutter_app
+
+The project path defaults to the current working directory.
+''');
 }
