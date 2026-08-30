@@ -16,16 +16,16 @@ class DependencyAnalysisResult {
     required this.health,
   });
 
-  /// Dependencies declared in pubspec.yaml.
+  /// Dependencies declared directly in pubspec.yaml.
   final List<Dependency> directDependencies;
 
-  /// Resolved dependencies from `dart pub deps --json`.
+  /// All resolved dependencies from `dart pub deps --json`.
   final List<LockedDependency> lockedDependencies;
 
   /// Complete dependency graph.
   final DependencyGraph graph;
 
-  /// Health analysis for direct and dev dependencies.
+  /// Health analysis for direct and development dependencies.
   final List<PackageHealth> health;
 
   /// Number of production/direct dependencies.
@@ -47,16 +47,16 @@ class DependencyAnalysisResult {
 
   /// Number of root packages.
   ///
-  /// `dart pub deps --json` includes the root package in the
-  /// resolved package list. It is therefore counted separately
-  /// from direct, dev, and transitive dependencies.
+  /// The root package is included by `dart pub deps --json`
+  /// in the resolved package list, so it is counted separately
+  /// from direct, development, and transitive dependencies.
   int get rootPackageCount {
-    return lockedDependencies
-        .where((dependency) => dependency.kind == 'root')
-        .length;
+    return lockedDependencies.where((dependency) => dependency.isRoot).length;
   }
 
-  /// Total number of resolved packages, including the root package.
+  /// Total number of resolved packages.
+  ///
+  /// This includes the root package.
   int get totalDependencyCount {
     return lockedDependencies.length;
   }
@@ -130,7 +130,7 @@ class DependencyAnalyzer {
     final health = healthAnalyzer.analyze(packagesToCheck, packageInfo);
 
     // --------------------------------------------------
-    // 7. Return result
+    // 7. Return analysis result
     // --------------------------------------------------
 
     return DependencyAnalysisResult(
@@ -141,6 +141,10 @@ class DependencyAnalyzer {
     );
   }
 
+  /// Returns true when the package comes from pub.dev/hosted source.
+  ///
+  /// Git and path dependencies are intentionally skipped because
+  /// they cannot be reliably checked through the pub.dev package API.
   bool _canCheckOnPubDev(LockedDependency package) {
     return package.source == 'hosted';
   }
