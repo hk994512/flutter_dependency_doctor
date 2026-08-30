@@ -4,11 +4,23 @@ import 'package:yaml/yaml.dart';
 
 import '../models/dependency.dart';
 
+/// Parses direct and development dependencies from `pubspec.yaml`.
 class PubspecParser {
-  final String projectPath;
-
+  /// Creates a parser for the project at [projectPath].
   const PubspecParser({required this.projectPath});
 
+  /// The path to the Dart or Flutter project.
+  final String projectPath;
+
+  /// Parses `pubspec.yaml` and returns its declared dependencies.
+  ///
+  /// Both regular `dependencies` and `dev_dependencies` sections
+  /// are parsed.
+  ///
+  /// Throws a [FileSystemException] if `pubspec.yaml` does not exist.
+  ///
+  /// Throws a [FormatException] if the YAML is invalid or has an
+  /// unexpected structure.
   List<Dependency> parse() {
     final file = File('$projectPath/pubspec.yaml');
 

@@ -5,9 +5,24 @@ import '../models/package_health.dart';
 import '../models/pub_package_info.dart';
 import 'package_recommendation.dart';
 
+/// Analyzes dependency health using resolved package and pub.dev data.
+///
+/// Detects discontinued packages, available updates, and version
+/// comparison problems, then generates recommendations where possible.
 class HealthAnalyzer {
-  final PackageRecommendationEngine recommendationEngine =
-      PackageRecommendationEngine();
+  /// Creates a health analyzer with a package recommendation engine.
+  HealthAnalyzer({PackageRecommendationEngine? recommendationEngine})
+    : recommendationEngine =
+          recommendationEngine ?? PackageRecommendationEngine();
+
+  /// Engine used to generate recommendations for unhealthy packages.
+  final PackageRecommendationEngine recommendationEngine;
+
+  /// Analyzes [packages] using information retrieved from pub.dev.
+  ///
+  /// Packages without available pub.dev information are reported with
+  /// a warning status. Discontinued packages are reported as critical,
+  /// while packages with newer available versions are reported as warnings.
   List<PackageHealth> analyze(
     List<LockedDependency> packages,
     Map<String, PubPackageInfo> packageInfo,
@@ -64,7 +79,6 @@ class HealthAnalyzer {
 
       try {
         final currentVersion = Version.parse(package.version);
-
         final latestVersion = Version.parse(info.latestVersion);
 
         if (latestVersion > currentVersion) {

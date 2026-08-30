@@ -1,10 +1,6 @@
+/// Contains package metadata retrieved from pub.dev.
 class PubPackageInfo {
-  final String name;
-  final String latestVersion;
-  final bool discontinued;
-  final String? publisher;
-  final String? repository;
-
+  /// Creates pub.dev package information.
   const PubPackageInfo({
     required this.name,
     required this.latestVersion,
@@ -12,4 +8,19 @@ class PubPackageInfo {
     this.publisher,
     this.repository,
   });
+
+  /// Name of the package.
+  final String name;
+
+  /// Latest version reported by pub.dev.
+  final String latestVersion;
+
+  /// Whether the package has been marked as discontinued.
+  final bool discontinued;
+
+  /// Publisher associated with the package, if available.
+  final String? publisher;
+
+  /// Repository URL associated with the package, if available.
+  final String? repository;
 }

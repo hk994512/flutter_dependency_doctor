@@ -4,11 +4,21 @@ import 'package:yaml/yaml.dart';
 
 import '../models/locked_dependency.dart';
 
+/// Parses dependency information from a project's `pubspec.lock` file.
 class PubspecLockParser {
-  final String projectPath;
-
+  /// Creates a parser for the project at [projectPath].
   const PubspecLockParser({required this.projectPath});
 
+  /// The path to the Dart or Flutter project.
+  final String projectPath;
+
+  /// Parses the `pubspec.lock` file and returns resolved dependencies.
+  ///
+  /// Throws a [FileSystemException] if the `pubspec.lock` file does not
+  /// exist, or if it cannot be read.
+  ///
+  /// Throws a [FormatException] if the lock file contains invalid YAML
+  /// or has an unexpected structure.
   List<LockedDependency> parse() {
     final file = File('$projectPath/pubspec.lock');
 

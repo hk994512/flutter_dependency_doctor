@@ -6,8 +6,10 @@ import '../models/locked_dependency.dart';
 /// Parses the resolved dependency information produced by
 /// `dart pub deps --json`.
 class PubDepsParser {
+  /// Creates a dependency parser for the project at [projectPath].
   const PubDepsParser({required this.projectPath});
 
+  /// Path to the Dart or Flutter project being analyzed.
   final String projectPath;
 
   /// Resolves and parses all dependencies in the project.

@@ -4,11 +4,24 @@ import 'package:http/http.dart' as http;
 
 import '../models/pub_package_info.dart';
 
+/// Provides access to package metadata from pub.dev.
 class PubDevService {
-  final http.Client client;
-
+  /// Creates a pub.dev service.
+  ///
+  /// An optional [client] can be provided for dependency injection
+  /// and testing. When omitted, a default [http.Client] is created.
   PubDevService({http.Client? client}) : client = client ?? http.Client();
 
+  /// The HTTP client used to communicate with pub.dev.
+  final http.Client client;
+
+  /// Retrieves package information from pub.dev.
+  ///
+  /// Returns package metadata when the request succeeds and the response
+  /// contains the expected structure.
+  ///
+  /// Returns `null` when the package cannot be found, the request fails,
+  /// or the response contains invalid or unexpected data.
   Future<PubPackageInfo?> getPackageInfo(String packageName) async {
     final uri = Uri.parse('https://pub.dev/api/packages/$packageName');
 
@@ -59,6 +72,7 @@ class PubDevService {
     }
   }
 
+  /// Closes the underlying HTTP client.
   void dispose() {
     client.close();
   }
