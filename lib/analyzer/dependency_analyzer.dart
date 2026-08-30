@@ -16,36 +16,32 @@ class DependencyAnalysisResult {
     required this.health,
   });
 
-  /// Dependencies declared directly in pubspec.yaml.
+  /// Dependencies declared in pubspec.yaml.
   final List<Dependency> directDependencies;
 
-  /// Fully resolved dependencies from `dart pub deps --json`.
+  /// Resolved dependencies from `dart pub deps --json`.
   final List<LockedDependency> lockedDependencies;
 
-  /// Dependency relationship graph.
+  /// Complete dependency graph.
   final DependencyGraph graph;
 
-  /// Health information for direct and dev dependencies.
+  /// Health analysis for direct and dev dependencies.
   final List<PackageHealth> health;
 
-  /// Number of production dependencies.
   int get productionDependencyCount {
     return lockedDependencies.where((dependency) => dependency.isDirect).length;
   }
 
-  /// Number of development dependencies.
   int get devDependencyCount {
     return lockedDependencies.where((dependency) => dependency.isDev).length;
   }
 
-  /// Number of transitive dependencies.
   int get transitiveDependencyCount {
     return lockedDependencies
         .where((dependency) => dependency.isTransitive)
         .length;
   }
 
-  /// Total number of resolved packages.
   int get totalDependencyCount {
     return lockedDependencies.length;
   }
@@ -66,12 +62,8 @@ class DependencyAnalyzer {
     final directDependencies = pubspecParser.parse();
 
     // --------------------------------------------------
-    // 2. Resolve complete dependency graph
+    // 2. Resolve dependencies
     // --------------------------------------------------
-    //
-    // `dart pub deps --json` gives us the resolved
-    // dependency information and classification.
-    //
 
     final depsParser = PubDepsParser(projectPath: projectPath);
 
@@ -84,7 +76,7 @@ class DependencyAnalyzer {
     final graph = DependencyGraph(dependencies: lockedDependencies);
 
     // --------------------------------------------------
-    // 4. Select packages that can be analyzed on pub.dev
+    // 4. Select packages that can be checked on pub.dev
     // --------------------------------------------------
 
     final packagesToCheck = lockedDependencies
@@ -97,7 +89,7 @@ class DependencyAnalyzer {
     final packageInfo = <String, PubPackageInfo>{};
 
     // --------------------------------------------------
-    // 5. Fetch Pub.dev metadata
+    // 5. Fetch pub.dev information
     // --------------------------------------------------
 
     final service = PubDevService();
@@ -134,10 +126,6 @@ class DependencyAnalyzer {
     );
   }
 
-  /// Only hosted packages can currently be queried through
-  /// the pub.dev package API.
-  ///
-  /// Git/path/SDK dependencies are intentionally skipped.
   bool _canCheckOnPubDev(LockedDependency package) {
     return package.source == 'hosted';
   }

@@ -8,39 +8,16 @@ class DependencyGraph {
 
   final Map<String, LockedDependency> packages;
 
-  /// Number of packages in the graph.
   int get packageCount => packages.length;
 
-  /// Returns a package by name.
-  LockedDependency? getPackage(String packageName) {
-    return packages[packageName];
-  }
-
-  /// Whether a package exists in the graph.
   bool contains(String packageName) {
     return packages.containsKey(packageName);
   }
 
-  /// Direct dependencies.
-  List<LockedDependency> get directPackages {
-    return List.unmodifiable(
-      packages.values.where((package) => package.isDirect),
-    );
+  LockedDependency? getPackage(String packageName) {
+    return packages[packageName];
   }
 
-  /// Development dependencies.
-  List<LockedDependency> get devPackages {
-    return List.unmodifiable(packages.values.where((package) => package.isDev));
-  }
-
-  /// Transitive dependencies.
-  List<LockedDependency> get transitivePackages {
-    return List.unmodifiable(
-      packages.values.where((package) => package.isTransitive),
-    );
-  }
-
-  /// Returns the packages directly required by [packageName].
   List<String> getDependencies(String packageName) {
     final package = packages[packageName];
 
@@ -51,7 +28,6 @@ class DependencyGraph {
     return List.unmodifiable(package.dependencies);
   }
 
-  /// Finds packages that directly depend on [packageName].
   List<String> findDependents(String packageName) {
     final dependents = <String>[];
 
@@ -64,11 +40,23 @@ class DependencyGraph {
     return List.unmodifiable(dependents);
   }
 
-  /// Finds the dependency chain from [packageName] to
-  /// all reachable dependencies.
-  ///
-  /// This is useful later for "why is this package installed?"
-  /// and impact analysis.
+  List<LockedDependency> get directPackages {
+    return List.unmodifiable(
+      packages.values.where((package) => package.isDirect),
+    );
+  }
+
+  List<LockedDependency> get devPackages {
+    return List.unmodifiable(packages.values.where((package) => package.isDev));
+  }
+
+  List<LockedDependency> get transitivePackages {
+    return List.unmodifiable(
+      packages.values.where((package) => package.isTransitive),
+    );
+  }
+
+  /// Returns all packages reachable from [packageName].
   Set<String> findTransitiveDependencies(String packageName) {
     final visited = <String>{};
     final queue = <String>[packageName];
