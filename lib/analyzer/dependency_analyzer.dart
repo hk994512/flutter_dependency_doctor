@@ -3,8 +3,7 @@ import '../models/locked_dependency.dart';
 import '../models/package_health.dart';
 import '../models/pub_package_info.dart';
 import '../parsers/pub_deps_parser.dart';
-
-import '../parsers/pubspec_lock_parser.dart';
+import '../parsers/pubspec_parser.dart';
 import '../services/pub_dev_service.dart';
 import 'dependency_graph.dart';
 import 'health_analyzer.dart';
@@ -17,19 +16,19 @@ class DependencyAnalysisResult {
     required this.health,
   });
 
-  /// Dependencies declared in pubspec.yaml.
+  /// Dependencies declared directly in pubspec.yaml.
   final List<Dependency> directDependencies;
 
-  /// Dependencies resolved from pubspec.lock / pub deps.
+  /// Fully resolved dependencies from `dart pub deps --json`.
   final List<LockedDependency> lockedDependencies;
 
-  /// Complete dependency graph.
+  /// Dependency relationship graph.
   final DependencyGraph graph;
 
-  /// Health analysis for relevant packages.
+  /// Health information for direct and dev dependencies.
   final List<PackageHealth> health;
 
-  /// Number of production/direct dependencies.
+  /// Number of production dependencies.
   int get productionDependencyCount {
     return lockedDependencies.where((dependency) => dependency.isDirect).length;
   }
@@ -46,7 +45,7 @@ class DependencyAnalysisResult {
         .length;
   }
 
-  /// Total resolved dependencies.
+  /// Total number of resolved packages.
   int get totalDependencyCount {
     return lockedDependencies.length;
   }
@@ -62,13 +61,17 @@ class DependencyAnalyzer {
     // 1. Parse pubspec.yaml
     // --------------------------------------------------
 
-    final pubspecParser = PubspecLockParser(projectPath: projectPath);
+    final pubspecParser = PubspecParser(projectPath: projectPath);
 
     final directDependencies = pubspecParser.parse();
 
     // --------------------------------------------------
-    // 2. Parse resolved/classified dependencies
+    // 2. Resolve complete dependency graph
     // --------------------------------------------------
+    //
+    // `dart pub deps --json` gives us the resolved
+    // dependency information and classification.
+    //
 
     final depsParser = PubDepsParser(projectPath: projectPath);
 
@@ -81,15 +84,21 @@ class DependencyAnalyzer {
     final graph = DependencyGraph(dependencies: lockedDependencies);
 
     // --------------------------------------------------
-    // 4. Fetch Pub.dev information
+    // 4. Select packages that can be analyzed on pub.dev
     // --------------------------------------------------
+
+    final packagesToCheck = lockedDependencies
+        .where(
+          (package) =>
+              (package.isDirect || package.isDev) && _canCheckOnPubDev(package),
+        )
+        .toList(growable: false);
 
     final packageInfo = <String, PubPackageInfo>{};
 
-    final packagesToCheck = lockedDependencies.where(
-      (package) =>
-          (package.isDirect || package.isDev) && _canCheckOnPubDev(package),
-    );
+    // --------------------------------------------------
+    // 5. Fetch Pub.dev metadata
+    // --------------------------------------------------
 
     final service = PubDevService();
 
@@ -106,18 +115,15 @@ class DependencyAnalyzer {
     }
 
     // --------------------------------------------------
-    // 5. Analyze package health
+    // 6. Analyze package health
     // --------------------------------------------------
 
     final healthAnalyzer = HealthAnalyzer();
 
-    final health = healthAnalyzer.analyze(
-      packagesToCheck.toList(growable: false),
-      packageInfo,
-    );
+    final health = healthAnalyzer.analyze(packagesToCheck, packageInfo);
 
     // --------------------------------------------------
-    // 6. Return analysis result
+    // 7. Return result
     // --------------------------------------------------
 
     return DependencyAnalysisResult(
@@ -128,18 +134,11 @@ class DependencyAnalyzer {
     );
   }
 
-  /// Returns true when the package should be queried
-  /// against pub.dev.
+  /// Only hosted packages can currently be queried through
+  /// the pub.dev package API.
   ///
-  /// SDK, path and git dependencies should not be
-  /// treated as normal pub.dev packages.
+  /// Git/path/SDK dependencies are intentionally skipped.
   bool _canCheckOnPubDev(LockedDependency package) {
-    switch (package.source) {
-      case 'hosted':
-        return true;
-
-      default:
-        return false;
-    }
+    return package.source == 'hosted';
   }
 }
