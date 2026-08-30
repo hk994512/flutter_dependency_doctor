@@ -28,20 +28,35 @@ class DependencyAnalysisResult {
   /// Health analysis for direct and dev dependencies.
   final List<PackageHealth> health;
 
+  /// Number of production/direct dependencies.
   int get productionDependencyCount {
     return lockedDependencies.where((dependency) => dependency.isDirect).length;
   }
 
+  /// Number of development dependencies.
   int get devDependencyCount {
     return lockedDependencies.where((dependency) => dependency.isDev).length;
   }
 
+  /// Number of transitive dependencies.
   int get transitiveDependencyCount {
     return lockedDependencies
         .where((dependency) => dependency.isTransitive)
         .length;
   }
 
+  /// Number of root packages.
+  ///
+  /// `dart pub deps --json` includes the root package in the
+  /// resolved package list. It is therefore counted separately
+  /// from direct, dev, and transitive dependencies.
+  int get rootPackageCount {
+    return lockedDependencies
+        .where((dependency) => dependency.kind == 'root')
+        .length;
+  }
+
+  /// Total number of resolved packages, including the root package.
   int get totalDependencyCount {
     return lockedDependencies.length;
   }
