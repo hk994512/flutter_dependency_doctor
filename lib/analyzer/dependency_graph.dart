@@ -56,7 +56,6 @@ class DependencyGraph {
     );
   }
 
-  /// Returns all packages reachable from [packageName].
   Set<String> findTransitiveDependencies(String packageName) {
     final visited = <String>{};
     final queue = <String>[packageName];
