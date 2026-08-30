@@ -3,15 +3,24 @@ import 'dart:io';
 
 import '../models/locked_dependency.dart';
 
+/// Parses the resolved dependency information produced by
+/// `dart pub deps --json`.
 class PubDepsParser {
   const PubDepsParser({required this.projectPath});
 
   final String projectPath;
 
+  /// Resolves and parses all dependencies in the project.
+  ///
+  /// Returns an unmodifiable list of [LockedDependency] objects.
+  ///
+  /// Throws:
+  /// - [ProcessException] when `dart pub deps --json` fails.
+  /// - [FormatException] when the command returns invalid data.
   List<LockedDependency> parse() {
     final result = Process.runSync(
       'dart',
-      const ['pub', 'deps', '--json'],
+      const <String>['pub', 'deps', '--json'],
       workingDirectory: projectPath,
       runInShell: true,
     );
@@ -21,7 +30,7 @@ class PubDepsParser {
 
       throw ProcessException(
         'dart',
-        const ['pub', 'deps', '--json'],
+        const <String>['pub', 'deps', '--json'],
         stderr.isEmpty ? 'Failed to resolve project dependencies.' : stderr,
         result.exitCode,
       );
@@ -35,28 +44,31 @@ class PubDepsParser {
       );
     }
 
-    final dynamic json;
+    final dynamic decoded;
 
     try {
-      json = jsonDecode(output);
-    } on FormatException catch (e) {
+      decoded = jsonDecode(output);
+    } on FormatException catch (error) {
       throw FormatException(
         'Invalid JSON returned by '
-        '"dart pub deps --json": ${e.message}',
+        '"dart pub deps --json": ${error.message}',
       );
     }
 
-    if (json is! Map<String, dynamic>) {
+    if (decoded is! Map<String, dynamic>) {
       throw const FormatException(
         'Invalid JSON structure returned by '
         '"dart pub deps --json".',
       );
     }
 
-    final packages = json['packages'];
+    final packages = decoded['packages'];
 
     if (packages == null) {
-      return const [];
+      throw const FormatException(
+        'Invalid dependency output: '
+        '"packages" field is missing.',
+      );
     }
 
     if (packages is! List) {
@@ -80,7 +92,7 @@ class PubDepsParser {
   }
 
   LockedDependency _parsePackage(Map<String, dynamic> package) {
-    final name = package['name']?.toString();
+    final name = package['name']?.toString().trim();
 
     if (name == null || name.isEmpty) {
       throw const FormatException(
@@ -88,11 +100,15 @@ class PubDepsParser {
       );
     }
 
+    final version = package['version']?.toString().trim();
+    final source = package['source']?.toString().trim();
+    final kind = package['kind']?.toString().trim();
+
     return LockedDependency(
       name: name,
-      version: package['version']?.toString() ?? 'unknown',
-      source: package['source']?.toString() ?? 'unknown',
-      kind: package['kind']?.toString() ?? 'unknown',
+      version: version == null || version.isEmpty ? 'unknown' : version,
+      source: source == null || source.isEmpty ? 'unknown' : source,
+      kind: kind == null || kind.isEmpty ? 'unknown' : kind,
       dependencies: _parseStringList(package['dependencies']),
       directDependencies: _parseStringList(package['directDependencies']),
       devDependencies: _parseStringList(package['devDependencies']),
@@ -104,6 +120,8 @@ class PubDepsParser {
       return const [];
     }
 
-    return List.unmodifiable(value.map((item) => item.toString()));
+    return List.unmodifiable(
+      value.map((item) => item.toString()).where((item) => item.isNotEmpty),
+    );
   }
 }
